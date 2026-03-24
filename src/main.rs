@@ -8,6 +8,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+mod cache;
 mod controllers;
 mod db;
 mod docs;
@@ -55,9 +56,15 @@ async fn main() -> anyhow::Result<()> {
 
     let stellar = StellarService::new(stellar_rpc_url, stellar_network);
 
+    // Redis is optional — app starts fine without it, caching is simply skipped.
+    let redis_url = std::env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let redis = cache::redis_client::connect(&redis_url).await;
+
     let state = Arc::new(AppState {
         db: pool,
         stellar,
+        redis,
     });
 
     let cors = CorsLayer::new()

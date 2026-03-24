@@ -59,7 +59,7 @@ pub async fn record_tip(
         Ok(true) => {}
     }
 
-    match tip_controller::record_tip(&state.db, body).await {
+    match tip_controller::record_tip(&state.db, &state.redis, body).await {
         Ok(tip) => {
             let response: TipResponse = tip.into();
             (StatusCode::CREATED, Json(serde_json::json!(response))).into_response()
