@@ -4,14 +4,18 @@ use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 mod controllers;
 mod db;
+mod docs;
 mod models;
 mod routes;
 mod services;
 
 use db::connection::AppState;
+use docs::ApiDoc;
 use services::stellar_service::StellarService;
 
 #[tokio::main]
@@ -56,6 +60,8 @@ async fn main() -> anyhow::Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
+        .merge(SwaggerUi::new("/swagger-ui")
+            .url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(routes::creators::router())
         .merge(routes::tips::router())
         .layer(cors)
@@ -66,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("Server listening on {}", addr);
+    tracing::info!("Swagger UI available at http://{}/swagger-ui", addr);
 
     axum::serve(listener, app).await?;
 

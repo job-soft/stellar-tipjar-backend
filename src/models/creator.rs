@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
@@ -10,16 +11,22 @@ pub struct Creator {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Deserialize)]
+/// Request body for creating a new creator
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateCreatorRequest {
+    /// Unique username for the creator
     pub username: String,
+    /// Stellar wallet address (public key)
     pub wallet_address: String,
 }
 
-#[derive(Debug, Serialize)]
+/// Creator profile response
+#[derive(Debug, Serialize, ToSchema)]
 pub struct CreatorResponse {
+    /// Unique identifier
     pub id: Uuid,
     pub username: String,
+    /// Stellar wallet address (public key)
     pub wallet_address: String,
     pub created_at: DateTime<Utc>,
 }

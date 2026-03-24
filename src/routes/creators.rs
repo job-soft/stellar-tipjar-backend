@@ -20,7 +20,18 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/creators/:username/tips", get(get_creator_tips))
 }
 
-async fn create_creator(
+/// Create a new creator profile
+#[utoipa::path(
+    post,
+    path = "/creators",
+    tag = "creators",
+    request_body = CreateCreatorRequest,
+    responses(
+        (status = 201, description = "Creator created successfully", body = CreatorResponse),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn create_creator(
     State(state): State<Arc<AppState>>,
     Json(body): Json<CreateCreatorRequest>,
 ) -> impl IntoResponse {
@@ -40,7 +51,21 @@ async fn create_creator(
     }
 }
 
-async fn get_creator(
+/// Get a creator by username
+#[utoipa::path(
+    get,
+    path = "/creators/{username}",
+    tag = "creators",
+    params(
+        ("username" = String, Path, description = "Creator's unique username")
+    ),
+    responses(
+        (status = 200, description = "Creator found", body = CreatorResponse),
+        (status = 404, description = "Creator not found"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn get_creator(
     State(state): State<Arc<AppState>>,
     Path(username): Path<String>,
 ) -> impl IntoResponse {
@@ -65,7 +90,20 @@ async fn get_creator(
     }
 }
 
-async fn get_creator_tips(
+/// List all tips for a creator
+#[utoipa::path(
+    get,
+    path = "/creators/{username}/tips",
+    tag = "creators",
+    params(
+        ("username" = String, Path, description = "Creator's unique username")
+    ),
+    responses(
+        (status = 200, description = "List of tips", body = Vec<TipResponse>),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn get_creator_tips(
     State(state): State<Arc<AppState>>,
     Path(username): Path<String>,
 ) -> impl IntoResponse {

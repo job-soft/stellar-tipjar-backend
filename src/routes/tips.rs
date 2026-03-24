@@ -15,11 +15,23 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new().route("/tips", post(record_tip))
 }
 
-async fn record_tip(
+/// Record a new tip (verifies transaction on the Stellar network first)
+#[utoipa::path(
+    post,
+    path = "/tips",
+    tag = "tips",
+    request_body = RecordTipRequest,
+    responses(
+        (status = 201, description = "Tip recorded successfully", body = TipResponse),
+        (status = 422, description = "Transaction not found or unsuccessful on Stellar network"),
+        (status = 502, description = "Unable to reach Stellar network for verification"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn record_tip(
     State(state): State<Arc<AppState>>,
     Json(body): Json<RecordTipRequest>,
 ) -> impl IntoResponse {
-    // Verify the transaction on the Stellar network before recording.
     match state
         .stellar
         .verify_transaction(&body.transaction_hash)
