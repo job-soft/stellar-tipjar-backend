@@ -24,7 +24,7 @@ async fn create_creator(
     State(state): State<Arc<AppState>>,
     Json(body): Json<CreateCreatorRequest>,
 ) -> impl IntoResponse {
-    match creator_controller::create_creator(&state.db, body).await {
+    match creator_controller::create_creator(&state, body).await {
         Ok(creator) => {
             let response: CreatorResponse = creator.into();
             (StatusCode::CREATED, Json(serde_json::json!(response))).into_response()
@@ -44,7 +44,7 @@ async fn get_creator(
     State(state): State<Arc<AppState>>,
     Path(username): Path<String>,
 ) -> impl IntoResponse {
-    match creator_controller::get_creator_by_username(&state.db, &username).await {
+    match creator_controller::get_creator_by_username(&state, &username).await {
         Ok(Some(creator)) => {
             let response: CreatorResponse = creator.into();
             (StatusCode::OK, Json(serde_json::json!(response))).into_response()
@@ -69,7 +69,7 @@ async fn get_creator_tips(
     State(state): State<Arc<AppState>>,
     Path(username): Path<String>,
 ) -> impl IntoResponse {
-    match tip_controller::get_tips_for_creator(&state.db, &username).await {
+    match tip_controller::get_tips_for_creator(&state, &username).await {
         Ok(tips) => {
             let response: Vec<TipResponse> = tips.into_iter().map(Into::into).collect();
             (StatusCode::OK, Json(serde_json::json!(response))).into_response()

@@ -44,10 +44,12 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("./migrations").run(&pool).await?;
 
     let stellar = StellarService::new(stellar_rpc_url, stellar_network);
+    let performance = Arc::new(db::performance::PerformanceMonitor::new());
 
     let state = Arc::new(AppState {
         db: pool,
         stellar,
+        performance,
     });
 
     let cors = CorsLayer::new()
