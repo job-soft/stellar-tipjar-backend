@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
@@ -12,10 +12,12 @@ use crate::controllers::tip_controller;
 use crate::db::connection::AppState;
 use crate::models::creator::{CreateCreatorRequest, CreatorResponse};
 use crate::models::tip::TipResponse;
+use crate::search::SearchQuery;
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/creators", post(create_creator))
+        .route("/creators/search", get(search_creators))
         .route("/creators/:username", get(get_creator))
         .route("/creators/:username/tips", get(get_creator_tips))
 }
@@ -117,6 +119,46 @@ pub async fn get_creator_tips(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({ "error": "Failed to get tips" })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Search creators by username
+#[utoipa::path(
+    get,
+    path = "/creators/search",
+    tag = "creators",
+    params(SearchQuery),
+    responses(
+        (status = 200, description = "Search results", body = Vec<CreatorResponse>),
+        (status = 400, description = "Missing or invalid query parameter"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn search_creators(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<SearchQuery>,
+) -> impl IntoResponse {
+    if query.q.trim().is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "Query parameter 'q' must not be empty" })),
+        )
+            .into_response();
+    }
+
+    match creator_controller::search_creators(&state.db, &query).await {
+        Ok(creators) => {
+            let response: Vec<CreatorResponse> = creators.into_iter().map(Into::into).collect();
+            (StatusCode::OK, Json(serde_json::json!(response))).into_response()
+        }
+        Err(e) => {
+            tracing::error!("Search failed: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "Search failed" })),
             )
                 .into_response()
         }

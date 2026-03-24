@@ -14,6 +14,7 @@ use crate::models::tip::{RecordTipRequest, TipResponse};
         crate::routes::creators::create_creator,
         crate::routes::creators::get_creator,
         crate::routes::creators::get_creator_tips,
+        crate::routes::creators::search_creators,
         crate::routes::tips::record_tip,
     ),
     components(
