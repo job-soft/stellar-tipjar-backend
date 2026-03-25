@@ -14,7 +14,6 @@ mod db;
 mod docs;
 mod middleware;
 mod models;
-mod middleware;
 mod routes;
 mod search;
 mod services;
@@ -69,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
         db: pool,
         stellar,
         performance,
+        redis,
     });
 
     let cors = CorsLayer::new()
@@ -76,11 +76,9 @@ async fn main() -> anyhow::Result<()> {
         .allow_origin(Any)
         .allow_headers(Any);
 
-    // Build rate limiters and spawn background cleanup tasks for each.
-    let (general_config, general_limiter) = middleware::rate_limiter::general_limiter();
-    let (write_config, write_limiter) = middleware::rate_limiter::write_limiter();
-    middleware::rate_limiter::spawn_cleanup(&general_config);
-    middleware::rate_limiter::spawn_cleanup(&write_config);
+    // Build rate limiters. They handle their own background cleanup.
+    let general_limiter = middleware::rate_limiter::general_limiter();
+    let write_limiter = middleware::rate_limiter::write_limiter();
 
     // Write endpoints get a stricter per-IP limit.
     let write_routes = Router::new()
@@ -101,6 +99,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(read_routes)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
+        .layer(middleware::compression::compression_layer())
         .layer(middleware::timeout::timeout_layer_from_env())
         .with_state(state);
 

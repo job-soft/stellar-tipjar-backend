@@ -23,15 +23,16 @@ chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tower-http = { version = "0.5", features = ["cors", "trace"] }
-tower-governor = { version = "0.4", features = ["axum"] }
+sha2 = "0.10"
+tower-http = { version = "0.5", features = ["cors", "trace", "compression-full", "timeout"] }
+tower_governor = { version = "0.4", features = ["axum"] }
 governor = "0.6"
 redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
 reqwest = { version = "0.12", features = ["json"] }
 thiserror = "1"
 anyhow = "1"
-utoipa = { version = "4", features = ["axum_extras", "chrono", "uuid"] }
-utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
+utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
+utoipa-swagger-ui = { version = "8", features = ["axum", "vendored"] }
 
 [dev-dependencies]
 axum-test = "15"
