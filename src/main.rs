@@ -25,13 +25,8 @@ async fn main() -> anyhow::Result<()> {
     println!("DEBUG: Docker Hot-Reload is working!");
     dotenvy::dotenv().ok();
 
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "stellar_tipjar_backend=debug,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    // Structured logging — JSON in production, pretty in dev.
+    logging::init();
 
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set");
@@ -141,6 +136,8 @@ async fn main() -> anyhow::Result<()> {
             ),
     );
 
+    let x_request_id = axum::http::HeaderName::from_static("x-request-id");
+
     let app = Router::new()
         .merge(SwaggerUi::new("/swagger-ui")
             .url("/api-docs/openapi.json", ApiDoc::openapi()))
@@ -155,8 +152,8 @@ async fn main() -> anyhow::Result<()> {
     let port = std::env::var("PORT").unwrap_or_else(|_| "8000".to_string());
     let addr = format!("0.0.0.0:{}", port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
-    tracing::info!("Server listening on {}", addr);
-    tracing::info!("Swagger UI available at http://{}/swagger-ui", addr);
+    tracing::info!(addr = %addr, "Server listening");
+    tracing::info!(addr = %addr, "Swagger UI available at http://{}/swagger-ui", addr);
 
     axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).await?;
 

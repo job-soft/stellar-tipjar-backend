@@ -9,6 +9,7 @@ use crate::search::SearchQuery;
 use crate::cache::{redis_client, keys};
 use sqlx::PgPool;
 
+#[tracing::instrument(skip(state), fields(username = %req.username))]
 pub async fn create_creator(state: &AppState, req: CreateCreatorRequest) -> Result<Creator> {
     let query = r#"
         INSERT INTO creators (id, username, wallet_address, email, created_at)
@@ -28,6 +29,7 @@ pub async fn create_creator(state: &AppState, req: CreateCreatorRequest) -> Resu
 
     QueryLogger::log_query(query, duration);
     state.performance.track_query(query, duration);
+    tracing::info!(duration_ms = duration.as_millis(), "Creator created");
 
     // Warm the cache immediately after creation.
     if let Some(conn) = state.redis.as_ref() {
@@ -45,6 +47,7 @@ pub async fn create_creator(state: &AppState, req: CreateCreatorRequest) -> Resu
     Ok(creator)
 }
 
+#[tracing::instrument(skip(state), fields(username = %username))]
 pub async fn get_creator_by_username(state: &AppState, username: &str) -> Result<Option<Creator>> {
     let query = r#"
         SELECT id, username, wallet_address, email, created_at
@@ -54,13 +57,14 @@ pub async fn get_creator_by_username(state: &AppState, username: &str) -> Result
 
     let start = Instant::now();
     let creator = sqlx::query_as::<_, Creator>(query)
-    .bind(username)
-    .fetch_optional(&state.db)
-    .await?;
+        .bind(username)
+        .fetch_optional(&state.db)
+        .await?;
     let duration = start.elapsed();
 
     QueryLogger::log_query(query, duration);
     state.performance.track_query(query, duration);
+    tracing::debug!(duration_ms = duration.as_millis(), found = creator.is_some(), "Creator lookup");
 
     // Populate cache if found.
     if let (Some(ref c), Some(conn)) = (&creator, state.redis.as_ref()) {
