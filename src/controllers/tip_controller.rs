@@ -6,9 +6,6 @@ use crate::db::connection::AppState;
 use crate::db::query_logger::QueryLogger;
 use crate::models::tip::{RecordTipRequest, Tip};
 use crate::cache::{redis_client, keys};
-use crate::controllers::creator_controller;
-use crate::email::EmailMessage;
-use tera::Context;
 
 pub async fn record_tip(state: &AppState, req: RecordTipRequest) -> Result<Tip> {
     let query = r#"
@@ -36,31 +33,6 @@ pub async fn record_tip(state: &AppState, req: RecordTipRequest) -> Result<Tip> 
         let tips_key = keys::creator_tips(&tip.creator_username);
         redis_client::del(&mut conn, &[tips_key.as_str()]).await;
     }
-
-    // Send email notification if creator has an email address configured.
-    let tip_clone = tip.clone();
-    let state_clone = state.clone();
-    tokio::spawn(async move {
-        if let Ok(Some(creator)) = creator_controller::get_creator_by_username(&state_clone, &tip_clone.creator_username).await {
-            if let Some(email_addr) = creator.email {
-                let mut context = Context::new();
-                context.insert("username", &creator.username);
-                context.insert("amount", &tip_clone.amount.to_string());
-                context.insert("transaction_hash", &tip_clone.transaction_hash);
-
-                let email_msg = EmailMessage {
-                    to: email_addr,
-                    subject: format!("🚀 You've received a new tip of {} XLM!", tip_clone.amount),
-                    template_name: "tip_received.html".into(),
-                    context,
-                };
-
-                if let Err(e) = state_clone.email.send(email_msg).await {
-                    tracing::error!("Failed to queue tip notification email: {}", e);
-                }
-            }
-        }
-    });
 
     Ok(tip)
 }
