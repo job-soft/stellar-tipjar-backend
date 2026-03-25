@@ -9,6 +9,7 @@ mod db;
 mod docs;
 mod middleware;
 mod models;
+mod middleware;
 mod routes;
 mod webhooks;
 mod search;
