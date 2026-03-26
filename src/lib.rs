@@ -1,3 +1,4 @@
+pub mod analytics;
 pub mod cache;
 pub mod controllers;
 pub mod db;

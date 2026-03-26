@@ -8,6 +8,7 @@ use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+mod analytics;
 mod cache;
 mod controllers;
 mod db;
@@ -100,6 +101,9 @@ async fn main() -> anyhow::Result<()> {
         redis,
         broadcast_tx,
     });
+
+    // Start the real-time analytics pipeline as a background task.
+    analytics::stream_processor::spawn(Arc::clone(&state));
 
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
