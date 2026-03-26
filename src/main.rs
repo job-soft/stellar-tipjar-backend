@@ -10,10 +10,12 @@ use utoipa_swagger_ui::SwaggerUi;
 
 mod cache;
 mod controllers;
+mod cqrs;
 mod db;
 mod docs;
 mod email;
 mod errors;
+mod events;
 mod logging;
 mod middleware;
 mod models;
@@ -22,6 +24,7 @@ mod webhooks;
 mod search;
 mod services;
 mod shutdown;
+mod telemetry;
 mod validation;
 mod ws;
 
@@ -157,6 +160,7 @@ async fn main() -> anyhow::Result<()> {
         .merge(v2)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
+        .layer(axum::middleware::from_fn(middleware::tracing::trace_request))
         .layer(axum::middleware::from_fn(middleware::cache::cache_control))
         .layer(middleware::timeout::timeout_layer_from_env())
         .with_state(state);
