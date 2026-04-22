@@ -67,4 +67,16 @@ impl<T: Serialize> PaginatedResponse<T> {
             total_pages,
         }
     }
+
+    pub fn map<U: Serialize, F: Fn(T) -> U>(self, f: F) -> PaginatedResponse<U> {
+        PaginatedResponse {
+            data: self.data.into_iter().map(f).collect(),
+            total: self.total,
+            page: self.page,
+            limit: self.limit,
+            total_pages: self.total_pages,
+            has_next: self.has_next,
+            has_prev: self.has_prev,
+        }
+    }
 }

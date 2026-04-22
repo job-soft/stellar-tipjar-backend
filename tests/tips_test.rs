@@ -96,7 +96,108 @@ async fn test_get_tips_for_creator() {
     response.assert_status(StatusCode::OK);
 
     let body = response.json::<serde_json::Value>();
-    assert_eq!(body[0]["amount"], "5.5");
+    assert_eq!(body["data"][0]["amount"], "5.5");
+
+    common::cleanup_test_db(&pool).await;
+}
+
+#[tokio::test]
+async fn test_get_creator_tips_paginated() {
+    let pool = common::setup_test_db().await;
+    let (app, _) = common::create_test_app(pool.clone()).await;
+    let server = TestServer::new(app).unwrap();
+
+    server
+        .post("/creators")
+        .json(&json!({ "username": "paguser", "wallet_address": "GPAG000", "email": null }))
+        .await;
+
+    for i in 1..=5i32 {
+        sqlx::query(
+            "INSERT INTO tips (id, creator_username, amount, transaction_hash, created_at) \
+             VALUES ($1, $2, $3, $4, NOW())",
+        )
+        .bind(uuid::Uuid::new_v4())
+        .bind("paguser")
+        .bind(format!("{}.0", i))
+        .bind(format!("HASH{i}"))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    // Page 1, limit 2
+    let resp = server
+        .get("/creators/paguser/tips?page=1&limit=2")
+        .await;
+    resp.assert_status(StatusCode::OK);
+    let body = resp.json::<serde_json::Value>();
+    assert_eq!(body["data"].as_array().unwrap().len(), 2);
+    assert_eq!(body["total"], 5);
+    assert_eq!(body["total_pages"], 3);
+    assert_eq!(body["has_next"], true);
+    assert_eq!(body["has_prev"], false);
+
+    // Page 3 (last page, 1 item)
+    let resp = server
+        .get("/creators/paguser/tips?page=3&limit=2")
+        .await;
+    resp.assert_status(StatusCode::OK);
+    let body = resp.json::<serde_json::Value>();
+    assert_eq!(body["data"].as_array().unwrap().len(), 1);
+    assert_eq!(body["has_next"], false);
+    assert_eq!(body["has_prev"], true);
+
+    common::cleanup_test_db(&pool).await;
+}
+
+#[tokio::test]
+async fn test_list_tips_with_filters() {
+    let pool = common::setup_test_db().await;
+    let (app, _) = common::create_test_app(pool.clone()).await;
+    let server = TestServer::new(app).unwrap();
+
+    server
+        .post("/creators")
+        .json(&json!({ "username": "filtuser", "wallet_address": "GFLT000", "email": null }))
+        .await;
+
+    for (amount, hash) in [("5.0", "FHASH1"), ("15.0", "FHASH2"), ("25.0", "FHASH3")] {
+        sqlx::query(
+            "INSERT INTO tips (id, creator_username, amount, transaction_hash, created_at) \
+             VALUES ($1, $2, $3, $4, NOW())",
+        )
+        .bind(uuid::Uuid::new_v4())
+        .bind("filtuser")
+        .bind(amount)
+        .bind(hash)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    // Filter min_amount=10
+    let resp = server
+        .get("/tips?min_amount=10&sort_by=amount&sort_order=asc")
+        .await;
+    resp.assert_status(StatusCode::OK);
+    let body = resp.json::<serde_json::Value>();
+    let data = body["data"].as_array().unwrap();
+    assert_eq!(data.len(), 2);
+    assert_eq!(data[0]["amount"], "15.0");
+    assert_eq!(data[1]["amount"], "25.0");
+
+    // Filter max_amount=10
+    let resp = server.get("/tips?max_amount=10").await;
+    resp.assert_status(StatusCode::OK);
+    let body = resp.json::<serde_json::Value>();
+    assert_eq!(body["total"], 1);
+
+    // Enforce max limit
+    let resp = server.get("/tips?limit=999").await;
+    resp.assert_status(StatusCode::OK);
+    let body = resp.json::<serde_json::Value>();
+    assert_eq!(body["limit"], 100);
 
     common::cleanup_test_db(&pool).await;
 }

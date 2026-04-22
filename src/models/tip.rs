@@ -48,6 +48,62 @@ fn validate_tx_hash(hash: &str) -> Result<(), validator::ValidationError> {
     Ok(())
 }
 
+/// Query filters for listing tips
+#[derive(Debug, Default, Deserialize, utoipa::IntoParams)]
+pub struct TipFilters {
+    /// Filter by minimum amount (inclusive)
+    pub min_amount: Option<String>,
+    /// Filter by maximum amount (inclusive)
+    pub max_amount: Option<String>,
+    /// Filter tips created on or after this timestamp (RFC 3339)
+    pub from_date: Option<DateTime<Utc>>,
+    /// Filter tips created on or before this timestamp (RFC 3339)
+    pub to_date: Option<DateTime<Utc>>,
+}
+
+/// Sort parameters for listing tips
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct TipSortParams {
+    /// Field to sort by: `created_at` or `amount` (default: `created_at`)
+    #[serde(default = "TipSortParams::default_sort_by")]
+    pub sort_by: String,
+    /// Sort direction: `asc` or `desc` (default: `desc`)
+    #[serde(default = "TipSortParams::default_sort_order")]
+    pub sort_order: String,
+}
+
+impl Default for TipSortParams {
+    fn default() -> Self {
+        Self {
+            sort_by: Self::default_sort_by(),
+            sort_order: Self::default_sort_order(),
+        }
+    }
+}
+
+impl TipSortParams {
+    fn default_sort_by() -> String {
+        "created_at".to_string()
+    }
+    fn default_sort_order() -> String {
+        "desc".to_string()
+    }
+
+    /// Returns a validated (column, direction) pair safe for interpolation.
+    pub fn validated(&self) -> (&'static str, &'static str) {
+        let col = match self.sort_by.as_str() {
+            "amount" => "amount::numeric",
+            _ => "created_at",
+        };
+        let dir = if self.sort_order.eq_ignore_ascii_case("asc") {
+            "ASC"
+        } else {
+            "DESC"
+        };
+        (col, dir)
+    }
+}
+
 /// Tip record response
 #[derive(Debug, Serialize, ToSchema)]
 pub struct TipResponse {

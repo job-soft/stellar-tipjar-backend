@@ -8,7 +8,7 @@ use crate::db::transaction;
 use crate::errors::{AppError, AppResult};
 use crate::metrics::collectors::DB_QUERY_DURATION_SECONDS; // Kept from your branch
 use crate::models::pagination::{PaginatedResponse, PaginationParams};
-use crate::models::tip::{RecordTipRequest, Tip};
+use crate::models::tip::{RecordTipRequest, Tip, TipFilters, TipSortParams};
 
 #[tracing::instrument(skip(state), fields(username = %req.username, amount = %req.amount))]
 pub async fn record_tip(state: &AppState, req: RecordTipRequest) -> AppResult<Tip> {
@@ -148,34 +148,94 @@ pub async fn get_tips_for_creator(state: &AppState, username: &str) -> AppResult
 
 pub async fn get_tips_paginated(
     state: &AppState,
-    username: &str,
+    username: Option<&str>,
     params: PaginationParams,
+    filters: TipFilters,
+    sort: TipSortParams,
 ) -> AppResult<PaginatedResponse<Tip>> {
     let params = params.validated();
+    let (sort_col, sort_dir) = sort.validated();
 
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tips WHERE creator_username = $1")
-        .bind(username)
+    // Extract filter values up front so we can reference them multiple times.
+    let min_amount = filters.min_amount.as_deref();
+    let max_amount = filters.max_amount.as_deref();
+    let from_date = filters.from_date;
+    let to_date = filters.to_date;
+
+    let mut conditions: Vec<String> = Vec::new();
+    let mut bind_idx: i32 = 1;
+
+    if username.is_some() {
+        conditions.push(format!("creator_username = ${bind_idx}"));
+        bind_idx += 1;
+    }
+    if min_amount.is_some() {
+        conditions.push(format!("amount::numeric >= ${}::numeric", bind_idx));
+        bind_idx += 1;
+    }
+    if max_amount.is_some() {
+        conditions.push(format!("amount::numeric <= ${}::numeric", bind_idx));
+        bind_idx += 1;
+    }
+    if from_date.is_some() {
+        conditions.push(format!("created_at >= ${bind_idx}"));
+        bind_idx += 1;
+    }
+    if to_date.is_some() {
+        conditions.push(format!("created_at <= ${bind_idx}"));
+        bind_idx += 1;
+    }
+
+    let where_clause = if conditions.is_empty() {
+        String::new()
+    } else {
+        format!("WHERE {}", conditions.join(" AND "))
+    };
+
+    let count_sql = format!("SELECT COUNT(*) FROM tips {where_clause}");
+    let data_sql = format!(
+        "SELECT id, creator_username, amount, transaction_hash, message, created_at \
+         FROM tips {where_clause} \
+         ORDER BY {sort_col} {sort_dir} \
+         LIMIT ${bind_idx} OFFSET ${}",
+        bind_idx + 1
+    );
+
+    // Bind all active filter parameters onto a query builder.
+    macro_rules! bind_filters {
+        ($q:expr) => {{
+            let mut q = $q;
+            if let Some(u) = username {
+                q = q.bind(u);
+            }
+            if let Some(v) = min_amount {
+                q = q.bind(v);
+            }
+            if let Some(v) = max_amount {
+                q = q.bind(v);
+            }
+            if let Some(v) = from_date {
+                q = q.bind(v);
+            }
+            if let Some(v) = to_date {
+                q = q.bind(v);
+            }
+            q
+        }};
+    }
+
+    let total: i64 = bind_filters!(sqlx::query_scalar(&count_sql))
         .fetch_one(&state.db)
         .await?;
 
     let start = Instant::now();
-    let tips = sqlx::query_as::<_, Tip>(
-        r#"
-        SELECT id, creator_username, amount, transaction_hash, message, created_at
-        FROM tips
-        WHERE creator_username = $1
-        ORDER BY created_at DESC
-        LIMIT $2 OFFSET $3
-        "#,
-    )
-    .bind(username)
-    .bind(params.limit)
-    .bind(params.offset())
-    .fetch_all(&state.db)
-    .await?;
+    let tips: Vec<Tip> = bind_filters!(sqlx::query_as::<_, Tip>(&data_sql))
+        .bind(params.limit)
+        .bind(params.offset())
+        .fetch_all(&state.db)
+        .await?;
     let duration = start.elapsed();
 
-    // Record your Prometheus metric for paginated queries too
     DB_QUERY_DURATION_SECONDS.observe(duration.as_secs_f64());
 
     Ok(PaginatedResponse::new(tips, total, &params))

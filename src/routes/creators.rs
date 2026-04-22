@@ -13,7 +13,7 @@ use crate::db::connection::AppState;
 use crate::errors::{AppError, ValidationError};
 use crate::models::creator::{CreateCreatorRequest, CreatorResponse};
 use crate::models::pagination::PaginationParams;
-use crate::models::tip::TipResponse;
+use crate::models::tip::{TipFilters, TipResponse, TipSortParams};
 use crate::search::SearchQuery;
 
 /// Write routes: POST /creators — subject to stricter rate limiting.
@@ -91,10 +91,12 @@ pub async fn get_creator_tips(
     State(state): State<Arc<AppState>>,
     Path(username): Path<String>,
     Query(params): Query<PaginationParams>,
+    Query(filters): Query<TipFilters>,
+    Query(sort): Query<TipSortParams>,
 ) -> Result<impl IntoResponse, AppError> {
-    let _ = params;
-    let tips = tip_controller::get_tips_for_creator(&state, &username).await?;
-    let response: Vec<TipResponse> = tips.into_iter().map(Into::into).collect();
+    let result = tip_controller::get_tips_paginated(&state, Some(&username), params, filters, sort)
+        .await?;
+    let response = result.map(TipResponse::from);
     Ok((StatusCode::OK, Json(serde_json::json!(response))).into_response())
 }
 

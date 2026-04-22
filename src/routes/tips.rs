@@ -1,13 +1,15 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::post, Json, Router};
+use axum::{extract::{Query, State}, http::StatusCode, response::IntoResponse, routing::{get, post}, Json, Router};
 use std::sync::Arc;
 
 use crate::controllers::tip_controller;
 use crate::db::connection::AppState;
 use crate::errors::{AppError, StellarError};
-use crate::models::tip::{RecordTipRequest, TipResponse};
+use crate::models::pagination::PaginationParams;
+use crate::models::tip::{RecordTipRequest, TipFilters, TipResponse, TipSortParams};
 
 pub fn router() -> Router<Arc<AppState>> {
-    Router::new().route("/tips", post(record_tip))
+    Router::new()
+        .route("/tips", post(record_tip).get(list_tips))
 }
 
 /// Record a new tip (verifies transaction on the Stellar network first)
@@ -44,4 +46,26 @@ pub async fn record_tip(
     let tip = tip_controller::record_tip(&state, body).await?;
     let response: TipResponse = tip.into();
     Ok((StatusCode::CREATED, Json(serde_json::json!(response))).into_response())
+}
+
+/// List all tips with pagination, filtering, and sorting
+#[utoipa::path(
+    get,
+    path = "/tips",
+    tag = "tips",
+    params(PaginationParams, TipFilters, TipSortParams),
+    responses(
+        (status = 200, description = "Paginated list of tips"),
+        (status = 500, description = "Internal server error")
+    )
+)]
+pub async fn list_tips(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<PaginationParams>,
+    Query(filters): Query<TipFilters>,
+    Query(sort): Query<TipSortParams>,
+) -> Result<impl IntoResponse, AppError> {
+    let result = tip_controller::get_tips_paginated(&state, None, params, filters, sort).await?;
+    let response = result.map(TipResponse::from);
+    Ok((StatusCode::OK, Json(serde_json::json!(response))).into_response())
 }
