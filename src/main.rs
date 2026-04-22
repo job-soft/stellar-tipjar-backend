@@ -1,16 +1,10 @@
 use axum::Router;
 use axum::{http::Method, Router};
-use axum::{http::Method, Router};
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use tower_http::trace::TraceLayer;
-use tower_http::trace::TraceLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
@@ -54,14 +48,7 @@ async fn main() -> anyhow::Result<()> {
     println!("DEBUG: Docker Hot-Reload is working!");
     dotenvy::dotenv().ok();
 
-    // Stick to the working tracing setup from your branch
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "stellar_tipjar_backend=debug,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    logging::init();
 
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let stellar_rpc_url = std::env::var("STELLAR_RPC_URL")
@@ -176,6 +163,7 @@ async fn main() -> anyhow::Result<()> {
             "/graphql",
             axum::routing::post(graphql_handler).get(graphql_ws_handler),
         )
+        .route("/metrics", axum::routing::get(metrics_handler))
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .merge(v1)
         .merge(v2)
@@ -184,6 +172,17 @@ async fn main() -> anyhow::Result<()> {
         .layer(TraceLayer::new_for_http())
         .layer(axum::middleware::from_fn(
             middleware::tracing::trace_request,
+        ))
+        .layer(axum::middleware::from_fn(
+            middleware::request_id::propagate_request_id,
+        ))
+        .layer(axum::middleware::from_fn(track_metrics))
+        .layer(tower_http::request_id::SetRequestIdLayer::new(
+            x_request_id.clone(),
+            tower_http::request_id::MakeRequestUuid,
+        ))
+        .layer(tower_http::request_id::PropagateRequestIdLayer::new(
+            x_request_id,
         ))
         .layer(axum::middleware::from_fn(middleware::cache::cache_control))
         .layer(middleware::timeout::timeout_layer_from_env())
