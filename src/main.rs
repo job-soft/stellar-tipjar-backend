@@ -126,6 +126,7 @@ async fn main() -> anyhow::Result<()> {
                     Router::new()
                         .merge(routes::creators::read_router())
                         .merge(routes::health::router())
+                        .merge(routes::notifications::router())
                         .layer(general_limiter_v1),
                 ),
         )
@@ -147,6 +148,7 @@ async fn main() -> anyhow::Result<()> {
                 Router::new()
                     .merge(routes::creators::read_router())
                     .merge(routes::health::router())
+                    .merge(routes::notifications::router())
                     .layer(general_limiter_v2),
             ),
     );

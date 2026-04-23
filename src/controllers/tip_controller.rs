@@ -111,6 +111,36 @@ pub async fn record_tip_in_tx(
     };
     crate::ws::broadcast_tip(&state.broadcast_tx, event).await;
 
+    // Persist notification if creator has tip notifications enabled.
+    {
+        let db = state.db.clone();
+        let username = tip.creator_username.clone();
+        let payload = serde_json::json!({
+            "tip_id": tip.id,
+            "amount": tip.amount,
+            "transaction_hash": tip.transaction_hash,
+            "message": tip.message,
+        });
+        tokio::spawn(async move {
+            use crate::controllers::notification_controller;
+            match notification_controller::get_preferences(&db, &username).await {
+                Ok(prefs) if prefs.notify_on_tip => {
+                    if let Err(e) = notification_controller::create_notification(
+                        &db,
+                        &username,
+                        "tip_received",
+                        payload,
+                    )
+                    .await
+                    {
+                        tracing::warn!("Failed to persist tip notification: {e}");
+                    }
+                }
+                _ => {}
+            }
+        });
+    }
+
     Ok(tip)
 }
 

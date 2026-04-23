@@ -3,4 +3,5 @@ pub mod auth;
 pub mod creators;
 pub mod export;
 pub mod health;
+pub mod notifications;
 pub mod tips;
