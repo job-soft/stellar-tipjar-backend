@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Summary</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0;">Your Weekly Summary</h1>
+    </div>
+    
+    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <p>Hi {{ username }},</p>
+        
+        <p>Here's your weekly summary for the past 7 days:</p>
+        
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h2 style="color: #667eea; margin-top: 0;">📊 Your Stats</h2>
+            <ul style="list-style: none; padding: 0;">
+                <li style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <strong>Total Tips Received:</strong> {{ tip_count }}
+                </li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <strong>Total Amount:</strong> {{ total_amount }} XLM
+                </li>
+                <li style="padding: 10px 0; border-bottom: 1px solid #eee;">
+                    <strong>Unique Supporters:</strong> {{ unique_tippers }}
+                </li>
+                <li style="padding: 10px 0;">
+                    <strong>Average Tip:</strong> {{ avg_amount }} XLM
+                </li>
+            </ul>
+        </div>
+        
+        {% if top_tipper %}
+        <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #667eea; margin-top: 0;">🌟 Top Supporter</h3>
+            <p>{{ top_tipper }} sent you {{ top_amount }} XLM this week!</p>
+        </div>
+        {% endif %}
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ dashboard_url }}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">View Dashboard</a>
+        </div>
+        
+        <p style="color: #666; font-size: 12px; text-align: center; margin-top: 30px;">
+            Don't want to receive weekly summaries? 
+            <a href="{{ unsubscribe_url }}" style="color: #667eea;">Unsubscribe</a>
+        </p>
+    </div>
+</body>
+</html>

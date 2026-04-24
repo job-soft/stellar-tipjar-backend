@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Update</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <h1 style="color: white; margin: 0;">Account Update</h1>
+    </div>
+    
+    <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+        <p>Hi {{ username }},</p>
+        
+        <p>{{ message }}</p>
+        
+        {% if action_required %}
+        <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+            <strong>⚠️ Action Required:</strong>
+            <p>{{ action_message }}</p>
+        </div>
+        {% endif %}
+        
+        {% if action_url %}
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ action_url }}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">{{ action_text }}</a>
+        </div>
+        {% endif %}
+        
+        <p style="color: #666; font-size: 12px; margin-top: 30px;">
+            If you didn't request this change, please contact support immediately.
+        </p>
+    </div>
+</body>
+</html>
